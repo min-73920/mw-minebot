@@ -11,8 +11,8 @@ turns, the same as a hand on the keyboard. It sends no packets of its own.
 
 ### Mining bot
 
-- **Finds and mines**: stone, logs, dirt, iron ore, coal, iron blocks and
-  chests. Each can be switched on or off
+- **Finds and mines**: stone, logs, dirt, iron ore, coal and iron blocks.
+  Each can be switched on or off
 - **Plain stone only.** Granite, diorite and andesite are skipped as targets,
   but anything standing in the way is still dug through
 - **Walks to what it wants**, digging through whatever the next step runs into.
@@ -20,7 +20,8 @@ turns, the same as a hand on the keyboard. It sends no packets of its own.
   overhead
 - **Chests that appear where you dug are taken next**, ahead of everything
   else. If you had already moved on by the time one showed up, it walks back
-  for it
+  for it. No other chest is ever broken, not even one in the way. With Chests
+  off, no chest is broken at all
 - **Protected chests are left alone.** The server's "This chest is protected"
   message is recognised
 - **Picks the right tool** from the hotbar before each block

@@ -1173,6 +1173,15 @@ public class MiningBot extends BotBase {
         MWMineBot.info("§6Chest appeared at " + p.getX() + "," + p.getY() + "," + p.getZ() + " -> taking it next");
     }
 
+    /**
+     * Chests on: only the ones that appeared where we had just dug.
+     * Chests off: none, not even one in the way.
+     */
+    @Override
+    protected boolean mayBreakChest(BlockPos p) {
+        return BotConfig.mineChest && ownChests.containsKey(p);
+    }
+
     /** True when an actual chest block is sitting at p right now. */
     private boolean isChestHere(BlockPos p) {
         Block b = blockAt(p);
@@ -1213,10 +1222,10 @@ public class MiningBot extends BotBase {
                 it.remove();
                 continue;
             }
-            if (blacklist.containsKey(p)) {
-                it.remove();
-                continue;
-            }
+            // Parked after a failed dig: still ours, tried again once the
+            // short retry wait is over. Protected and unbreakable chests are
+            // removed from the map where that is found out, not here.
+            if (blacklist.containsKey(p)) continue;
 
             double d = distanceToBlock(p);
             if (d < bestD) {
@@ -1253,6 +1262,7 @@ public class MiningBot extends BotBase {
 
     private boolean isTarget(BlockPos p) {
         if (isCursed(p)) return false;
+        if (isChestHere(p)) return mayBreakChest(p);
         try {
             return isTargetState(mc.theWorld.getBlockState(p));
         } catch (Exception e) {
@@ -1268,7 +1278,8 @@ public class MiningBot extends BotBase {
         if (BotConfig.mineIron && b == Blocks.iron_ore) return true;
         if (BotConfig.mineCoal && b == Blocks.coal_ore) return true;
         if (BotConfig.mineIronBlock && b == Blocks.iron_block) return true;
-        if (BotConfig.mineChest && (b == Blocks.chest || b == Blocks.trapped_chest)) return true;
+        // Chests are not on this list: only one out of our own dig is ever a
+        // target, and that needs the position (see isTarget / mayBreakChest).
         return false;
     }
 }

@@ -1054,11 +1054,20 @@ public abstract class BotBase {
         // the obstruction checks, the tunnel turn logic -- gets it for free.
         if (isCursed(p)) return true;
         Block b = blockAt(p);
+        // Chests are never dug through as something in the way. The only
+        // chest that may be broken is one the subclass vouches for (the
+        // mining bot: one that appeared where we had just dug, Chests on).
+        if ((b == Blocks.chest || b == Blocks.trapped_chest) && !mayBreakChest(p)) return true;
         return b == Blocks.bedrock
                 || b == Blocks.obsidian
                 || b == Blocks.barrier
                 || b == Blocks.command_block
                 || b == Blocks.ender_chest;
+    }
+
+    /** Whether the chest at p may be broken. Nobody's chest by default. */
+    protected boolean mayBreakChest(BlockPos p) {
+        return false;
     }
 
     protected boolean isDiggable(BlockPos p) {
