@@ -1,6 +1,9 @@
 package com.haiselita.mwminebot;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.gui.GuiIngameMenu;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemShears;
@@ -16,6 +19,9 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @Mod(modid = MWMineBot.MODID, name = "useful MW", version = "1.0", clientSideOnly = true)
 public class MWMineBot {
@@ -69,6 +75,31 @@ public class MWMineBot {
         tunnelBot.stop(reason);
     }
 
+    public boolean isAnyRunning() {
+        return miningBot.isRunning() || tunnelBot.isRunning();
+    }
+
+    public static boolean isAllowedBackgroundScreen(GuiScreen s) {
+        return s == null || s instanceof GuiIngameMenu || s instanceof GuiChat;
+    }
+
+    public static boolean isBackgroundAllowedNow() {
+        MWMineBot b = instance;
+        if (b == null || !BotConfig.backgroundMine || !b.isAnyRunning()) return false;
+        return isAllowedBackgroundScreen(Minecraft.getMinecraft().currentScreen);
+    }
+
+    public static boolean resolveLeftClick(boolean orig) {
+        if (orig) return true;
+        if (!isBackgroundAllowedNow()) return false;
+        return Input.isHeld(Minecraft.getMinecraft().gameSettings.keyBindAttack);
+    }
+
+    public static boolean shouldPauseScreen(Object screen) {
+        if (screen instanceof GuiIngameMenu && isBackgroundAllowedNow()) return false;
+        return true;
+    }
+
     /**
      * A pickaxe or axe wearing out mid-run is easy to miss, and everything
      * after it is slower without saying why.
@@ -110,8 +141,9 @@ public class MWMineBot {
             mc.displayGuiScreen(new GuiBotMenu());
         }
 
-        // Chat, inventory, anything that is not our own menu: hands off.
-        if (mc.currentScreen != null && !(mc.currentScreen instanceof GuiBotMenu)) {
+        // Chat, inventory, anything that is not our own menu or an allowed background screen: hands off.
+        boolean bgAllowed = BotConfig.backgroundMine && isAllowedBackgroundScreen(mc.currentScreen);
+        if (mc.currentScreen != null && !(mc.currentScreen instanceof GuiBotMenu) && !bgAllowed) {
             stopAll("a screen was opened");
         }
 
@@ -132,12 +164,97 @@ public class MWMineBot {
         miningBot.onClientTick();
         tunnelBot.onClientTick();
 
+        tickBackgroundActions();
+
         // One invariant covering every stop path there is: nothing running,
         // nothing held.
         if (!miningBot.isRunning() && !tunnelBot.isRunning() && Input.anyHeld()) {
             Input.releaseAll();
         }
         wallTimer.onClientTick();
+    }
+
+    private static Field fLeftClickCounter;
+    private static Field fRightClickDelay;
+    private static Method mSendClickBlock;
+    private static Method mRightClickMouse;
+    private static boolean reflectInit = false;
+    private boolean wasBgDigging = false;
+
+    private static void ensureReflect() {
+        if (reflectInit) return;
+        reflectInit = true;
+        fLeftClickCounter = findField("field_71429_W", "leftClickCounter");
+        fRightClickDelay = findField("field_71467_ac", "rightClickDelayTimer");
+        mSendClickBlock = findMethod(new String[]{"func_147115_a", "sendClickBlockToController"}, boolean.class);
+        mRightClickMouse = findMethod(new String[]{"func_147121_ag", "rightClickMouse"});
+    }
+
+    private static Field findField(String... names) {
+        for (String n : names) {
+            try {
+                Field f = Minecraft.class.getDeclaredField(n);
+                f.setAccessible(true);
+                return f;
+            } catch (Throwable ignored) {}
+        }
+        return null;
+    }
+
+    private static Method findMethod(String[] names, Class<?>... params) {
+        for (String n : names) {
+            try {
+                Method m = Minecraft.class.getDeclaredMethod(n, params);
+                m.setAccessible(true);
+                return m;
+            } catch (Throwable ignored) {}
+        }
+        return null;
+    }
+
+    /**
+     * Vanilla runTick skips sendClickBlockToController / rightClickMouse whenever
+     * currentScreen != null && !allowUserInput (e.g. GuiIngameMenu / GuiChat)
+     * and sets leftClickCounter = 10000 every tick. Drive them while a bot runs
+     * in an allowed background screen.
+     */
+    private void tickBackgroundActions() {
+        boolean activeBg = mc.currentScreen != null && isBackgroundAllowedNow()
+                && mc.thePlayer != null && mc.theWorld != null;
+        if (!activeBg) {
+            if (wasBgDigging) {
+                wasBgDigging = false;
+                if (mc.playerController != null) mc.playerController.resetBlockRemoving();
+            }
+            return;
+        }
+        ensureReflect();
+        if (mc.entityRenderer != null) {
+            mc.entityRenderer.getMouseOver(1.0F);
+        }
+        try {
+            if (fLeftClickCounter != null) fLeftClickCounter.setInt(mc, 0);
+        } catch (Throwable ignored) {}
+
+        boolean attackHeld = Input.isHeld(mc.gameSettings.keyBindAttack);
+        if (mSendClickBlock != null) {
+            try {
+                mSendClickBlock.invoke(mc, Boolean.valueOf(attackHeld));
+                wasBgDigging = attackHeld;
+            } catch (Throwable ignored) {}
+        }
+
+        if (!mc.thePlayer.isUsingItem() && mRightClickMouse != null) {
+            while (mc.gameSettings.keyBindUseItem.isPressed()) {
+                try { mRightClickMouse.invoke(mc); } catch (Throwable ignored) {}
+            }
+            if (Input.isHeld(mc.gameSettings.keyBindUseItem)) {
+                try {
+                    int delay = fRightClickDelay != null ? fRightClickDelay.getInt(mc) : 1;
+                    if (delay == 0) mRightClickMouse.invoke(mc);
+                } catch (Throwable ignored) {}
+            }
+        }
     }
 
     @SubscribeEvent

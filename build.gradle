@@ -25,6 +25,13 @@ minecraft {
 dependencies {
 }
 
+jar {
+    manifest {
+        attributes 'FMLCorePlugin': 'com.haiselita.mwminebot.asm.MWMineBotPlugin',
+                   'FMLCorePluginContainsFMLMod': 'true'
+    }
+}
+
 processResources {
     inputs.property "version", project.version
     inputs.property "mcversion", project.minecraft.version

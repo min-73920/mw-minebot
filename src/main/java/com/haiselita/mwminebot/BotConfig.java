@@ -17,7 +17,7 @@ public class BotConfig {
      * Bumped whenever a default changes in a way a saved file would otherwise
      * keep overriding. On an older file the affected keys are reset.
      */
-    private static final int CONFIG_VERSION = 2;
+    private static final int CONFIG_VERSION = 3;
 
     public static boolean mineStone = true;
     public static boolean mineLog = true;
@@ -45,7 +45,10 @@ public class BotConfig {
      * mined. With this off the button stays down through camera turns, which
      * is faster to watch but breaks whatever the crosshair sweeps across.
      */
-    public static boolean strictClick = true;
+    public static boolean strictClick = false;
+
+    /** Keep mining in the background when ESC / Chat is open or window loses focus. */
+    public static boolean backgroundMine = true;
 
     /** Hold the real left mouse button via java.awt.Robot. */
     public static boolean useRobotClick = true;
@@ -156,6 +159,7 @@ public class BotConfig {
         showTargetBox = bool(p, "showTargetBox", showTargetBox);
         useRobotClick = bool(p, "useRobotClick", useRobotClick);
         strictClick = bool(p, "strictClick", strictClick);
+        backgroundMine = bool(p, "backgroundMine", backgroundMine);
         searchVisibleOnly = bool(p, "searchVisibleOnly", searchVisibleOnly);
         debugLog = bool(p, "debugLog", debugLog);
         randomize = bool(p, "randomize", randomize);
@@ -186,6 +190,9 @@ public class BotConfig {
             // through terrain.
             searchVisibleOnly = false;
         }
+        if (fileVersion < 3) {
+            strictClick = false;
+        }
 
         String custom = p.getProperty("blockedMineMessages", "");
         if (!custom.trim().isEmpty()) {
@@ -215,6 +222,7 @@ public class BotConfig {
         p.setProperty("showTargetBox", String.valueOf(showTargetBox));
         p.setProperty("useRobotClick", String.valueOf(useRobotClick));
         p.setProperty("strictClick", String.valueOf(strictClick));
+        p.setProperty("backgroundMine", String.valueOf(backgroundMine));
         p.setProperty("searchVisibleOnly", String.valueOf(searchVisibleOnly));
         p.setProperty("debugLog", String.valueOf(debugLog));
         p.setProperty("randomize", String.valueOf(randomize));

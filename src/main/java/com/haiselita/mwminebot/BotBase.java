@@ -581,11 +581,13 @@ public abstract class BotBase {
             // block is one continuous press.
             Input.setAttack(true);
         } else {
-            // strictClick releases during camera turns. Holding through a turn
-            // makes the crosshair sweep other blocks and the game breaks those
-            // too -- nothing is gained either way, because break progress is
-            // discarded the moment the crosshair changes block.
-            Input.setAttack(!BotConfig.strictClick);
+            if (BotConfig.strictClick) {
+                Input.setAttack(false);
+            } else {
+                // Keep left-click held across consecutive blocks, releasing only if sweeping onto something unbreakable/chest.
+                boolean badHit = isBlock && mop.getBlockPos() != null && isUnbreakable(mop.getBlockPos());
+                Input.setAttack(!badHit);
+            }
 
             // Settled, or long enough that waiting for "settled" is the thing
             // holding us up. The tracking rotator keeps re-aiming while the

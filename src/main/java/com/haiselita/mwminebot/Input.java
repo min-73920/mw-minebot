@@ -108,10 +108,15 @@ public class Input {
         if (down) press(kb); else release(kb);
     }
 
+    private static boolean useRobotNow() {
+        Minecraft mc = Minecraft.getMinecraft();
+        return BotConfig.useRobotClick && Display.isActive() && mc.currentScreen == null && robot() != null;
+    }
+
     private static void press(KeyBinding kb) {
         int code = kb.getKeyCode();
 
-        if (BotConfig.useRobotClick && Display.isActive() && robot() != null) {
+        if (useRobotNow()) {
             Integer mask = mouseMask(code);
             if (mask != null) {
                 try {
@@ -135,6 +140,7 @@ public class Input {
 
         KeyBinding.setKeyBindState(code, true);
         held.put(kb, Boolean.FALSE);
+        stamp(kb);
     }
 
     private static void stamp(KeyBinding kb) {
@@ -184,16 +190,34 @@ public class Input {
     public static void tick() {
         if (held.isEmpty()) return;
 
-        if (!Display.isActive()) {
+        Minecraft mc = Minecraft.getMinecraft();
+        boolean bgAllowed = MWMineBot.isBackgroundAllowedNow();
+        if (!Display.isActive() && !bgAllowed) {
             releaseAll();
             return;
         }
 
         long now = System.currentTimeMillis();
 
-        // Hard cap, independent of every other code path.
-        for (Map.Entry<KeyBinding, Long> e : new LinkedHashMap<KeyBinding, Long>(heldSince).entrySet()) {
-            if (now - e.getValue().longValue() > MAX_HOLD_MS) release(e.getKey());
+        // Bound right-click holds so a missed release cannot keep placing blocks.
+        KeyBinding useKey = mc.gameSettings.keyBindUseItem;
+        Long useSince = heldSince.get(useKey);
+        if (useSince != null && now - useSince.longValue() > MAX_HOLD_MS) {
+            release(useKey);
+        }
+
+        boolean inBackground = !Display.isActive() || mc.currentScreen != null;
+        if (inBackground && bgAllowed) {
+            // Never keep an OS Robot press while another window or GUI is active; keep internal state only.
+            for (Map.Entry<KeyBinding, Boolean> e : new LinkedHashMap<KeyBinding, Boolean>(held).entrySet()) {
+                KeyBinding kb = e.getKey();
+                if (Boolean.TRUE.equals(e.getValue())) {
+                    releaseRobotOnly(kb);
+                    held.put(kb, Boolean.FALSE);
+                }
+                KeyBinding.setKeyBindState(kb.getKeyCode(), true);
+            }
+            return;
         }
 
         if (now - lastResync < 250L) return;
@@ -205,6 +229,19 @@ public class Input {
             held.remove(kb);
             press(kb);
         }
+    }
+
+    private static void releaseRobotOnly(KeyBinding kb) {
+        if (robot == null) return;
+        int code = kb.getKeyCode();
+        Integer mask = mouseMask(code);
+        try {
+            if (mask != null) robot.mouseRelease(mask);
+            else {
+                Integer vk = VK.get(code);
+                if (vk != null) robot.keyRelease(vk);
+            }
+        } catch (Throwable ignored) {}
     }
 
     /** MC stores mouse buttons as (button - 100). */
@@ -225,7 +262,7 @@ public class Input {
         if (kb == null) return false;
         int code = kb.getKeyCode();
 
-        if (BotConfig.useRobotClick && Display.isActive() && robot() != null) {
+        if (useRobotNow()) {
             Integer mask = mouseMask(code);
             if (mask != null) {
                 try {

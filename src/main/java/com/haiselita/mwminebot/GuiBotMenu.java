@@ -29,6 +29,7 @@ public class GuiBotMenu extends GuiScreen {
     private static final int ID_BOX = 12;
     private static final int ID_DEBUG = 13;
     private static final int ID_STRICT = 14;
+    private static final int ID_BG = 20;
     private static final int ID_CLOSE = 15;
 
     @Override
@@ -65,6 +66,7 @@ public class GuiBotMenu extends GuiScreen {
         buttonList.add(new GuiButton(ID_STRICT, cx + 2, y, hw, 20, ""));
         y += step;
         buttonList.add(new GuiButton(ID_TIMER, cx - w / 2, y, hw, 20, ""));
+        buttonList.add(new GuiButton(ID_BG, cx + 2, y, hw, 20, ""));
         y += step;
         buttonList.add(new GuiButton(ID_CLIMB, cx - w / 2, y, hw, 20, ""));
         buttonList.add(new GuiButton(ID_PILLAR, cx + 2, y, hw, 20, ""));
@@ -109,6 +111,7 @@ public class GuiBotMenu extends GuiScreen {
                 case ID_BOX:    b.displayString = "Show target: " + onOff(BotConfig.showTargetBox); break;
                 case ID_DEBUG:  b.displayString = "Debug log: " + onOff(BotConfig.debugLog); break;
                 case ID_STRICT: b.displayString = BotConfig.strictClick ? "Click: per block" : "Click: hold"; break;
+                case ID_BG:     b.displayString = "Background: " + onOff(BotConfig.backgroundMine); break;
                 default: break;
             }
         }
@@ -163,6 +166,7 @@ public class GuiBotMenu extends GuiScreen {
             case ID_BOX: BotConfig.showTargetBox = !BotConfig.showTargetBox; break;
             case ID_DEBUG: BotConfig.debugLog = !BotConfig.debugLog; break;
             case ID_STRICT: BotConfig.strictClick = !BotConfig.strictClick; break;
+            case ID_BG: BotConfig.backgroundMine = !BotConfig.backgroundMine; break;
             case ID_CLOSE:
                 mc.displayGuiScreen(null);
                 return;
